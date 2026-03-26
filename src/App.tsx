@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { 
-  BarChart3, 
-  PieChart, 
-  TrendingUp, 
+import {
+  BarChart3,
+  PieChart,
+  TrendingUp,
   CreditCard,
   Plus,
   ArrowUpRight,
@@ -25,7 +25,9 @@ import {
   PencilLine,
   Trash2,
   Eye,
-  FileText
+  FileText,
+  BookOpen,
+  AlertCircle
 } from 'lucide-react';
 
 // --- Data Types ---
@@ -67,6 +69,21 @@ interface ManualForm {
   category: string;
   type: 'income' | 'expense';
   source: string;
+}
+
+interface BsData {
+  // 資産
+  cash: number;
+  receivables: number;
+  otherCurrentAssets: number;
+  equipment: number;
+  // 負債
+  payables: number;
+  taxPayable: number;
+  otherLiabilities: number;
+  // 純資産
+  capital: number;
+  retainedEarnings: number;
 }
 
 const CATEGORIES = [
@@ -133,6 +150,30 @@ function App() {
     const expense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
     return { income, expense, profit: income - expense };
   }, [transactions]);
+
+  // B/S データ
+  const [bsData, setBsData] = useState<BsData>({
+    cash: 500000,
+    receivables: 250000,
+    otherCurrentAssets: 0,
+    equipment: 150000,
+    payables: 30000,
+    taxPayable: 0,
+    otherLiabilities: 0,
+    capital: 100000,
+    retainedEarnings: 450000,
+  });
+  const [bsEditMode, setBsEditMode] = useState(false);
+
+  const bsTotals = useMemo(() => {
+    const totalCurrentAssets = bsData.cash + bsData.receivables + bsData.otherCurrentAssets;
+    const totalFixedAssets = bsData.equipment;
+    const totalAssets = totalCurrentAssets + totalFixedAssets;
+    const totalLiabilities = bsData.payables + bsData.taxPayable + bsData.otherLiabilities;
+    const totalEquity = bsData.capital + bsData.retainedEarnings + plData.profit;
+    const totalLiabilitiesAndEquity = totalLiabilities + totalEquity;
+    return { totalCurrentAssets, totalFixedAssets, totalAssets, totalLiabilities, totalEquity, totalLiabilitiesAndEquity };
+  }, [bsData, plData.profit]);
 
   // --- AI Auto-Processing Actions ---
   const scanForNewFiles = () => {
@@ -565,6 +606,88 @@ function App() {
               </div>
             </div>
             
+            {/* Balance Sheet */}
+            <div className="bg-white p-10 rounded-[50px] border border-slate-200 shadow-sm border-t-[12px] border-t-indigo-500">
+              <div className="flex items-center justify-between mb-10">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 border border-indigo-100 shadow-inner"><BookOpen size={24}/></div>
+                  <h3 className="text-xl font-black text-slate-800 tracking-tight">第{fiscalPeriod}期 貸借対照表 (B/S)</h3>
+                </div>
+                <div className="flex items-center gap-3">
+                  {bsTotals.totalAssets !== bsTotals.totalLiabilitiesAndEquity && (
+                    <div className="flex items-center gap-2 bg-rose-50 text-rose-600 px-4 py-2 rounded-2xl text-xs font-black border border-rose-100">
+                      <AlertCircle size={14}/> 貸借不一致
+                    </div>
+                  )}
+                  {bsTotals.totalAssets === bsTotals.totalLiabilitiesAndEquity && (
+                    <div className="flex items-center gap-2 bg-teal-50 text-teal-600 px-4 py-2 rounded-2xl text-xs font-black border border-teal-100">
+                      <Check size={14}/> 貸借一致
+                    </div>
+                  )}
+                  <button onClick={() => setBsEditMode(p => !p)} className={`px-5 py-2 rounded-2xl font-black text-xs transition-all ${bsEditMode ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600'}`}>
+                    {bsEditMode ? '完了' : '編集'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                {/* 資産の部 */}
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 font-mono">資産の部</p>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 py-2">流動資産</p>
+                    <BSRow label="現金・預金" value={bsData.cash} editMode={bsEditMode} onChange={v => setBsData(p => ({ ...p, cash: v }))} />
+                    <BSRow label="売掛金" value={bsData.receivables} editMode={bsEditMode} onChange={v => setBsData(p => ({ ...p, receivables: v }))} />
+                    <BSRow label="その他流動資産" value={bsData.otherCurrentAssets} editMode={bsEditMode} onChange={v => setBsData(p => ({ ...p, otherCurrentAssets: v }))} />
+                    <div className="flex justify-between items-center py-3 px-4 bg-slate-50 rounded-2xl">
+                      <span className="font-black text-sm text-slate-700">流動資産合計</span>
+                      <span className="font-black font-mono text-slate-800">¥{bsTotals.totalCurrentAssets.toLocaleString()}</span>
+                    </div>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 py-2 pt-4">固定資産</p>
+                    <BSRow label="工具器具備品等" value={bsData.equipment} editMode={bsEditMode} onChange={v => setBsData(p => ({ ...p, equipment: v }))} />
+                    <div className="flex justify-between items-center py-3 px-4 bg-slate-50 rounded-2xl">
+                      <span className="font-black text-sm text-slate-700">固定資産合計</span>
+                      <span className="font-black font-mono text-slate-800">¥{bsTotals.totalFixedAssets.toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center mt-6 bg-indigo-900 text-white px-8 py-5 rounded-[32px] shadow-2xl">
+                    <span className="font-black text-sm">資産合計</span>
+                    <span className="text-2xl font-black font-mono italic text-indigo-300">¥{bsTotals.totalAssets.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                {/* 負債・純資産の部 */}
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 font-mono">負債・純資産の部</p>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 py-2">流動負債</p>
+                    <BSRow label="未払金" value={bsData.payables} editMode={bsEditMode} onChange={v => setBsData(p => ({ ...p, payables: v }))} />
+                    <BSRow label="未払税金" value={bsData.taxPayable} editMode={bsEditMode} onChange={v => setBsData(p => ({ ...p, taxPayable: v }))} />
+                    <BSRow label="その他負債" value={bsData.otherLiabilities} editMode={bsEditMode} onChange={v => setBsData(p => ({ ...p, otherLiabilities: v }))} />
+                    <div className="flex justify-between items-center py-3 px-4 bg-slate-50 rounded-2xl">
+                      <span className="font-black text-sm text-slate-700">負債合計</span>
+                      <span className="font-black font-mono text-slate-800">¥{bsTotals.totalLiabilities.toLocaleString()}</span>
+                    </div>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 py-2 pt-4">純資産</p>
+                    <BSRow label="資本金" value={bsData.capital} editMode={bsEditMode} onChange={v => setBsData(p => ({ ...p, capital: v }))} />
+                    <BSRow label="繰越利益剰余金（前期）" value={bsData.retainedEarnings} editMode={bsEditMode} onChange={v => setBsData(p => ({ ...p, retainedEarnings: v }))} />
+                    <div className="flex justify-between items-center py-3 px-4 bg-teal-50 rounded-2xl border border-teal-100">
+                      <span className="font-black text-sm text-teal-700">当期純利益（P/L連動）</span>
+                      <span className="font-black font-mono text-teal-700">¥{plData.profit.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-3 px-4 bg-slate-50 rounded-2xl">
+                      <span className="font-black text-sm text-slate-700">純資産合計</span>
+                      <span className="font-black font-mono text-slate-800">¥{bsTotals.totalEquity.toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center mt-6 bg-indigo-900 text-white px-8 py-5 rounded-[32px] shadow-2xl">
+                    <span className="font-black text-sm">負債・純資産合計</span>
+                    <span className="text-2xl font-black font-mono italic text-indigo-300">¥{bsTotals.totalLiabilitiesAndEquity.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-12 rounded-[60px] flex flex-col md:flex-row items-center justify-between gap-10 relative overflow-hidden group shadow-2xl">
                <div className="flex items-center gap-10 relative z-10">
                  <div className="w-24 h-24 bg-teal-400/10 rounded-[32px] flex items-center justify-center border-2 border-teal-500/20 group-hover:scale-110 transition-transform shadow-inner">
@@ -707,6 +830,27 @@ function App() {
         ) : null}
 
       </main>
+    </div>
+  );
+}
+
+function BSRow({ label, value, editMode, onChange }: { label: string, value: number, editMode: boolean, onChange: (v: number) => void }) {
+  return (
+    <div className="flex justify-between items-center py-3 px-4 rounded-2xl hover:bg-slate-50 transition-all group">
+      <span className="text-sm text-slate-500 font-bold">{label}</span>
+      {editMode ? (
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm">¥</span>
+          <input
+            type="number"
+            value={value}
+            onChange={e => onChange(parseInt(e.target.value) || 0)}
+            className="w-36 bg-white border border-indigo-200 rounded-xl pl-7 pr-3 py-1.5 text-slate-800 font-black text-sm text-right outline-none focus:border-indigo-400 transition-all"
+          />
+        </div>
+      ) : (
+        <span className="font-bold font-mono text-slate-800 group-hover:scale-105 transition-transform">¥{value.toLocaleString()}</span>
+      )}
     </div>
   );
 }

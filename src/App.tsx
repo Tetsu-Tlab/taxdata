@@ -27,7 +27,8 @@ import {
   Eye,
   FileText,
   BookOpen,
-  AlertCircle
+  AlertCircle,
+  Printer
 } from 'lucide-react';
 
 // --- Data Types ---
@@ -164,6 +165,7 @@ function App() {
     retainedEarnings: 450000,
   });
   const [bsEditMode, setBsEditMode] = useState(false);
+  const [docSubTab, setDocSubTab] = useState<'journal' | 'ledger' | 'receipts' | 'export'>('journal');
 
   const bsTotals = useMemo(() => {
     const totalCurrentAssets = bsData.cash + bsData.receivables + bsData.otherCurrentAssets;
@@ -827,9 +829,337 @@ function App() {
               </div>
             </div>
           </div>
+        ) : activeTab === 'documents' ? (
+          <div className="mt-8 space-y-6 animate-in slide-in-from-bottom-6 duration-500">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-3xl font-black text-slate-900 tracking-tighter flex items-center gap-3"><FileText className="text-violet-500"/> 税務書類</h2>
+                <p className="text-slate-500 mt-1 font-bold italic text-sm">税務調査・確定申告に対応した帳票を確認・出力できます</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">対象期間</p>
+                <p className="text-sm font-black text-slate-600">第{fiscalPeriod}期</p>
+              </div>
+            </div>
+
+            {/* Sub tabs */}
+            <div className="flex gap-1 bg-slate-100 p-1.5 rounded-2xl w-fit">
+              {([
+                { id: 'journal', label: '仕訳帳' },
+                { id: 'ledger', label: '総勘定元帳' },
+                { id: 'receipts', label: '証憑一覧' },
+                { id: 'export', label: '印刷・出力' },
+              ] as const).map(tab => (
+                <button key={tab.id} onClick={() => setDocSubTab(tab.id)}
+                  className={`px-5 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${docSubTab === tab.id ? 'bg-white shadow text-violet-700' : 'text-slate-500 hover:text-slate-800'}`}>
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* 仕訳帳 */}
+            {docSubTab === 'journal' && (
+              <div className="bg-white rounded-[40px] border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-violet-50 rounded-2xl flex items-center justify-center text-violet-600 border border-violet-100"><FileText size={24}/></div>
+                    <div>
+                      <h3 className="text-xl font-black text-slate-800">第{fiscalPeriod}期 仕訳帳</h3>
+                      <p className="text-xs text-slate-400 font-bold mt-0.5">複式簿記 — 全取引の借方・貸方記録</p>
+                    </div>
+                  </div>
+                  <button onClick={() => printSection('doc-journal', `第${fiscalPeriod}期 仕訳帳`)} className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-slate-800 transition-all active:scale-95">
+                    <Printer size={16}/> 印刷・PDF出力
+                  </button>
+                </div>
+                <div id="doc-journal" className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-100">
+                        <th className="text-left py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">日付</th>
+                        <th className="text-left py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">借方科目</th>
+                        <th className="text-left py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">貸方科目</th>
+                        <th className="text-right py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">金額</th>
+                        <th className="text-left py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">摘要</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...transactions].sort((a, b) => a.date.localeCompare(b.date)).map((t, i) => (
+                        <tr key={t.id} className={`border-b border-slate-50 hover:bg-violet-50/30 transition-colors ${i % 2 === 1 ? 'bg-slate-50/40' : ''}`}>
+                          <td className="py-4 px-6 text-sm font-mono text-slate-500">{t.date}</td>
+                          <td className="py-4 px-6">
+                            <span className={`text-xs font-black px-3 py-1 rounded-full ${t.type === 'income' ? 'bg-teal-50 text-teal-700 border border-teal-100' : 'bg-rose-50 text-rose-700 border border-rose-100'}`}>
+                              {t.type === 'income' ? '普通預金' : t.category}
+                            </span>
+                          </td>
+                          <td className="py-4 px-6">
+                            <span className={`text-xs font-black px-3 py-1 rounded-full ${t.type === 'income' ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' : 'bg-slate-100 text-slate-600'}`}>
+                              {t.type === 'income' ? t.category : '普通預金'}
+                            </span>
+                          </td>
+                          <td className="py-4 px-6 text-right font-black font-mono text-slate-800">¥{t.amount.toLocaleString()}</td>
+                          <td className="py-4 px-6 text-sm text-slate-600 font-medium">{t.vendor}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-slate-900 text-white">
+                        <td colSpan={3} className="py-5 px-6 font-black text-sm">合計 ({transactions.length}件)</td>
+                        <td className="py-5 px-6 text-right font-black font-mono text-teal-400 text-lg">¥{transactions.reduce((a, t) => a + t.amount, 0).toLocaleString()}</td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* 総勘定元帳 */}
+            {docSubTab === 'ledger' && (
+              <div className="space-y-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-violet-50 rounded-2xl flex items-center justify-center text-violet-600 border border-violet-100"><BookOpen size={24}/></div>
+                    <div>
+                      <h3 className="text-xl font-black text-slate-800">第{fiscalPeriod}期 総勘定元帳</h3>
+                      <p className="text-xs text-slate-400 font-bold mt-0.5">勘定科目別の取引明細と残高</p>
+                    </div>
+                  </div>
+                  <button onClick={() => printSection('doc-ledger', `第${fiscalPeriod}期 総勘定元帳`)} className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-slate-800 transition-all active:scale-95">
+                    <Printer size={16}/> 印刷・PDF出力
+                  </button>
+                </div>
+                <div id="doc-ledger" className="space-y-4">
+                  <LedgerAccount accountName="普通預金" isDebitNormal={true}
+                    entries={[...transactions].sort((a,b) => a.date.localeCompare(b.date)).map(t => ({
+                      date: t.date, description: t.vendor,
+                      debit: t.type === 'income' ? t.amount : 0,
+                      credit: t.type === 'expense' ? t.amount : 0,
+                    }))}
+                  />
+                  {Array.from(new Set(transactions.map(t => t.category))).map(cat => {
+                    const catTxs = [...transactions.filter(t => t.category === cat)].sort((a,b) => a.date.localeCompare(b.date));
+                    const isIncome = catTxs[0]?.type === 'income';
+                    return (
+                      <LedgerAccount key={cat} accountName={cat} isDebitNormal={!isIncome}
+                        entries={catTxs.map(t => ({
+                          date: t.date, description: t.vendor,
+                          debit: t.type === 'expense' ? t.amount : 0,
+                          credit: t.type === 'income' ? t.amount : 0,
+                        }))}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* 証憑一覧 */}
+            {docSubTab === 'receipts' && (
+              <div className="bg-white rounded-[40px] border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-violet-50 rounded-2xl flex items-center justify-center text-violet-600 border border-violet-100"><FileCheck size={24}/></div>
+                    <div>
+                      <h3 className="text-xl font-black text-slate-800">第{fiscalPeriod}期 証憑一覧</h3>
+                      <p className="text-xs text-slate-400 font-bold mt-0.5">全取引の証憑リスト — 税務調査時に提出</p>
+                    </div>
+                  </div>
+                  <button onClick={() => printSection('doc-receipts', `第${fiscalPeriod}期 証憑一覧`)} className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-slate-800 transition-all active:scale-95">
+                    <Printer size={16}/> 印刷・PDF出力
+                  </button>
+                </div>
+                <div id="doc-receipts" className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-100">
+                        <th className="text-left py-4 px-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">No.</th>
+                        <th className="text-left py-4 px-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">日付</th>
+                        <th className="text-left py-4 px-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">取引先</th>
+                        <th className="text-left py-4 px-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">勘定科目</th>
+                        <th className="text-left py-4 px-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">収支</th>
+                        <th className="text-right py-4 px-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">金額</th>
+                        <th className="text-left py-4 px-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">ソース</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...transactions].sort((a, b) => a.date.localeCompare(b.date)).map((t, i) => (
+                        <tr key={t.id} className="border-b border-slate-50 hover:bg-violet-50/20 transition-colors">
+                          <td className="py-4 px-5 text-sm font-mono text-slate-400">{String(i + 1).padStart(3, '0')}</td>
+                          <td className="py-4 px-5 text-sm font-mono text-slate-600">{t.date}</td>
+                          <td className="py-4 px-5 text-sm font-black text-slate-800">{t.vendor}</td>
+                          <td className="py-4 px-5"><span className="text-xs font-black bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full border border-indigo-100">{t.category}</span></td>
+                          <td className="py-4 px-5">
+                            <span className={`text-xs font-black px-3 py-1 rounded-full ${t.type === 'income' ? 'bg-teal-50 text-teal-700 border border-teal-100' : 'bg-rose-50 text-rose-700 border border-rose-100'}`}>
+                              {t.type === 'income' ? '収入' : '支出'}
+                            </span>
+                          </td>
+                          <td className={`py-4 px-5 text-right font-black font-mono ${t.type === 'income' ? 'text-teal-600' : 'text-rose-500'}`}>
+                            {t.type === 'income' ? '+' : '-'}¥{t.amount.toLocaleString()}
+                          </td>
+                          <td className="py-4 px-5"><span className="text-[10px] font-black bg-slate-100 text-slate-500 px-2 py-1 rounded uppercase tracking-widest">{t.source}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-slate-50 border-t-2 border-slate-200">
+                        <td colSpan={5} className="py-5 px-5 font-black text-sm text-slate-600">
+                          収入合計: <span className="text-teal-600">¥{plData.income.toLocaleString()}</span>　支出合計: <span className="text-rose-500">¥{plData.expense.toLocaleString()}</span>
+                        </td>
+                        <td className="py-5 px-5 text-right font-black font-mono text-slate-900">差引: ¥{plData.profit.toLocaleString()}</td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* 印刷・出力 */}
+            {docSubTab === 'export' && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {([
+                  { title: '仕訳帳', desc: '全取引の借方・貸方記録（複式簿記）', tab: 'journal' as const, docId: 'doc-journal' },
+                  { title: '総勘定元帳', desc: '勘定科目別の取引明細と残高', tab: 'ledger' as const, docId: 'doc-ledger' },
+                  { title: '証憑一覧', desc: '全取引リスト（税務調査提出用）', tab: 'receipts' as const, docId: 'doc-receipts' },
+                ] as const).map(doc => (
+                  <div key={doc.tab} className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
+                    <div className="flex items-center gap-4 mb-6">
+                      <div className="w-14 h-14 bg-violet-50 rounded-2xl flex items-center justify-center text-violet-600 border border-violet-100 group-hover:scale-110 transition-transform">
+                        <FileText size={28}/>
+                      </div>
+                      <div>
+                        <h4 className="font-black text-slate-800 text-lg">{doc.title}</h4>
+                        <p className="text-xs text-slate-400 font-bold mt-0.5">{doc.desc}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => { setDocSubTab(doc.tab); setTimeout(() => printSection(doc.docId, `第${fiscalPeriod}期 ${doc.title}`), 300); }}
+                      className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-sm hover:bg-slate-800 transition-all active:scale-95 flex items-center justify-center gap-2"
+                    >
+                      <Printer size={16}/> 印刷・PDF出力
+                    </button>
+                  </div>
+                ))}
+                <div className="bg-slate-900 text-white p-8 rounded-[40px] shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all group md:col-span-3 flex items-center justify-between">
+                  <div className="flex items-center gap-6">
+                    <div className="w-16 h-16 bg-teal-400/10 rounded-2xl flex items-center justify-center border border-teal-400/20 group-hover:scale-110 transition-transform">
+                      <Sparkles className="text-teal-400" size={32} fill="currentColor"/>
+                    </div>
+                    <div>
+                      <h4 className="text-xl font-black tracking-tight">全書類を一括出力</h4>
+                      <p className="text-slate-400 text-sm font-medium mt-1">仕訳帳・総勘定元帳・証憑一覧を順番にPDF出力</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const docs = [
+                        { tab: 'journal' as const, id: 'doc-journal', title: `第${fiscalPeriod}期 仕訳帳` },
+                        { tab: 'ledger' as const, id: 'doc-ledger', title: `第${fiscalPeriod}期 総勘定元帳` },
+                        { tab: 'receipts' as const, id: 'doc-receipts', title: `第${fiscalPeriod}期 証憑一覧` },
+                      ];
+                      docs.forEach((doc, i) => {
+                        setTimeout(() => { setDocSubTab(doc.tab); setTimeout(() => printSection(doc.id, doc.title), 400); }, i * 1800);
+                      });
+                    }}
+                    className="bg-teal-500 hover:bg-teal-400 text-slate-900 px-10 py-5 rounded-2xl font-black transition-all active:scale-95 flex items-center gap-2"
+                  >
+                    <Printer size={20}/> 一括出力する
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         ) : null}
 
       </main>
+    </div>
+  );
+}
+
+function printSection(elementId: string, title: string) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  const w = window.open('', '_blank', 'width=1000,height=700');
+  if (!w) return;
+  w.document.write(`<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8"><title>${title}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:12px;color:#1a1a1a;padding:30px;}
+h1{font-size:20px;font-weight:900;margin-bottom:4px;}
+.subtitle{font-size:11px;color:#666;margin-bottom:24px;}
+table{width:100%;border-collapse:collapse;margin:12px 0;}
+th{background:#f4f4f5;padding:10px 12px;text-align:left;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e4e4e7;}
+td{padding:10px 12px;border-bottom:1px solid #f4f4f5;}
+.amount{text-align:right;font-family:monospace;font-weight:700;}
+.tfoot-row td{background:#18181b;color:white;font-weight:900;}
+.section-head{background:#1e1b4b;color:white;padding:10px 14px;font-weight:900;font-size:13px;display:flex;justify-content:space-between;}
+.tag{display:inline-block;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:900;}
+.footer{margin-top:40px;padding-top:16px;border-top:1px solid #e4e4e7;font-size:10px;color:#999;display:flex;justify-content:space-between;}
+@media print{body{padding:15px;}}
+</style></head>
+<body>
+<h1>${title}</h1>
+<p class="subtitle">出力日: ${new Date().toLocaleDateString('ja-JP')} &nbsp;|&nbsp; Supportia 会計処理ツール</p>
+${el.innerHTML}
+<div class="footer"><span>Supportia — AI会計処理ツール</span><span>${new Date().toLocaleDateString('ja-JP')}</span></div>
+<script>setTimeout(()=>{window.print();},400);<\/script>
+</body></html>`);
+  w.document.close();
+}
+
+function LedgerAccount({ accountName, entries, isDebitNormal }: {
+  accountName: string;
+  entries: { date: string; description: string; debit: number; credit: number; }[];
+  isDebitNormal: boolean;
+}) {
+  let balance = 0;
+  const rows = entries.map(e => {
+    balance += isDebitNormal ? (e.debit - e.credit) : (e.credit - e.debit);
+    return { ...e, balance };
+  });
+  const totalDebit = entries.reduce((a, e) => a + e.debit, 0);
+  const totalCredit = entries.reduce((a, e) => a + e.credit, 0);
+  if (entries.length === 0) return null;
+  return (
+    <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden">
+      <div className="bg-slate-800 text-white px-6 py-4 flex items-center gap-3">
+        <span className="text-xs font-black bg-white/10 px-3 py-1 rounded-full uppercase tracking-widest">{isDebitNormal ? '資産・費用' : '収益'}</span>
+        <h4 className="font-black tracking-tight">{accountName}</h4>
+        <span className="ml-auto text-sm font-bold text-slate-400">{entries.length}件</span>
+      </div>
+      <table className="w-full">
+        <thead>
+          <tr className="bg-slate-50 border-b border-slate-100">
+            <th className="text-left py-3 px-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">日付</th>
+            <th className="text-left py-3 px-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">摘要</th>
+            <th className="text-right py-3 px-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">借方</th>
+            <th className="text-right py-3 px-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">貸方</th>
+            <th className="text-right py-3 px-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">残高</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i} className={`border-b border-slate-50 hover:bg-violet-50/20 transition-colors ${i % 2 === 1 ? 'bg-slate-50/40' : ''}`}>
+              <td className="py-3 px-5 text-sm font-mono text-slate-500">{row.date}</td>
+              <td className="py-3 px-5 text-sm text-slate-700 font-medium">{row.description}</td>
+              <td className="py-3 px-5 text-right font-mono text-sm text-teal-700">{row.debit > 0 ? `¥${row.debit.toLocaleString()}` : '—'}</td>
+              <td className="py-3 px-5 text-right font-mono text-sm text-rose-500">{row.credit > 0 ? `¥${row.credit.toLocaleString()}` : '—'}</td>
+              <td className="py-3 px-5 text-right font-black font-mono text-slate-800">¥{row.balance.toLocaleString()}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="bg-slate-50 border-t-2 border-slate-200">
+            <td colSpan={2} className="py-3 px-5 font-black text-sm text-slate-600">合計</td>
+            <td className="py-3 px-5 text-right font-black font-mono text-teal-700">{totalDebit > 0 ? `¥${totalDebit.toLocaleString()}` : '—'}</td>
+            <td className="py-3 px-5 text-right font-black font-mono text-rose-500">{totalCredit > 0 ? `¥${totalCredit.toLocaleString()}` : '—'}</td>
+            <td className="py-3 px-5 text-right font-black font-mono text-indigo-600">¥{Math.abs(totalDebit - totalCredit).toLocaleString()}</td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
   );
 }

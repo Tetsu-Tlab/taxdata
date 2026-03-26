@@ -1,5 +1,3 @@
-import { next } from '@vercel/edge';
-
 export const config = {
   matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };
@@ -15,7 +13,7 @@ export default function middleware(req: Request) {
       user === process.env.BASIC_AUTH_USER &&
       pwd === process.env.BASIC_AUTH_PASSWORD
     ) {
-      return next();
+      return; // pass through
     }
   }
 
